@@ -6,6 +6,9 @@ from loguru import logger
 
 from handlers.start import start_router
 
+from database.core.models import db_helper
+from database.core.models.base import Base
+
 
 class InterceptHandler(logging.Handler):
     def emit(self, record):
@@ -19,7 +22,11 @@ logging.getLogger('asyncio').addHandler(InterceptHandler())
 
 
 async def main():
-    logger.info(f"Starting the bot using api_key: {settings.bot_api_key}")
+
+    async with db_helper.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    logger.debug(f"Starting the bot using api_key: {settings.bot_api_key}")
 
     await bot.delete_webhook(drop_pending_updates=True)
 
