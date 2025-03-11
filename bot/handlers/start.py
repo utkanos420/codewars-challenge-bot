@@ -1,10 +1,13 @@
 from loguru import logger
+from typing import Callable, Any, Awaitable, Dict
+from random import randint
 from aiogram import Router, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
+from aiogram.types import TelegramObject
+from aiogram import BaseMiddleware
 
 from database.telegram_db_methods.db_methods import DBMethods
-
 
 logger.remove()
 logger.add(
@@ -16,10 +19,9 @@ logger.add(
 )
 
 
-"""
 class UserInternalIdMiddleware(BaseMiddleware):
-    def get_internal_id(self, user_id: int) -> int:
-        return randint(100_000_000, 900_000_000) + user_id
+    def __init__(self):
+        self.db_methods = DBMethods()
 
     async def __call__(
             self,
@@ -27,22 +29,40 @@ class UserInternalIdMiddleware(BaseMiddleware):
             event: TelegramObject,
             data: Dict[str, Any],
     ) -> Any:
-        user = data["event_from_user"]
-        data["internal_id"] = self.get_internal_id(user.id)
-        logger.debug("Middleware is here!")
-        return await handler(event, data)"
-start_router.message.middleware(UserInternalIdMiddleware())
-"""
+        user = data.get("event_from_user")
+        if user:
+            user_id = user.id
+            username = user.username
+
+            existing_user = await self.db_methods.get_user(user_id)
+
+            if not existing_user:
+                logger.debug(f"User {user_id} not found, creating a new user.")
+                created_user = await self.db_methods.create_user(user_id, username)
+                logger.debug(f"User {user_id} created.")
+
+                await self.db_methods.create_profile(
+                    user_id=created_user.user_id,
+                    challenges_solved=0,
+                    katas_solved=0
+                )
+                logger.debug(f"Profile for user {user_id} created.")
+            
+            data["user_id"] = user_id
+            data["user_username"] = username
+            logger.debug("Middleware has processed the user.")
+        else:
+            logger.warning("No user information found in the event data.")
+        
+        return await handler(event, data)
 
 
 start_router = Router()
+start_router.message.middleware(UserInternalIdMiddleware())
 
 @start_router.message(CommandStart())
 async def start(message: types.Message, state: FSMContext):
 
-    db = DBMethods()
-
-    user = await db.create_user(user_id=message.from_user.id, username=message.from_user.username)
     logger.debug(f"Created user with credits {message.from_user.id} {message.from_user.username}")
 
     await message.answer("Hello world from bot!")
