@@ -5,10 +5,14 @@ import logging
 from loguru import logger
 
 from handlers.start import start_router
+from handlers.user_handlers.main import user_main_router
 
 from database.core.models import db_helper
 from database.core.models.base import Base
 
+from jinja2 import Environment, FileSystemLoader
+
+env = Environment(loader=FileSystemLoader('templates'))
 
 class InterceptHandler(logging.Handler):
     def emit(self, record):
@@ -31,6 +35,7 @@ async def main():
     await bot.delete_webhook(drop_pending_updates=True)
 
     dp.include_router(start_router)
+    dp.include_router(user_main_router)
     await dp.start_polling(bot)
 
 

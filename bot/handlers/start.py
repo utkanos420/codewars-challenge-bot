@@ -1,13 +1,17 @@
 from loguru import logger
+from datetime import datetime
 from typing import Callable, Any, Awaitable, Dict
 from random import randint
 from aiogram import Router, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import TelegramObject
+from aiogram.filters import StateFilter
 from aiogram import BaseMiddleware
 
 from database.telegram_db_methods.db_methods import DBMethods
+from states.user_states import UserStates
+
 
 logger.remove()
 logger.add(
@@ -41,10 +45,13 @@ class UserInternalIdMiddleware(BaseMiddleware):
                 created_user = await self.db_methods.create_user(user_id, username)
                 logger.debug(f"User {user_id} created.")
 
+                created_at = datetime.now().strftime("%d/%m/%Y")
+
                 await self.db_methods.create_profile(
                     user_id=created_user.user_id,
                     challenges_solved=0,
-                    katas_solved=0
+                    katas_solved=0,
+                    created_at=created_at
                 )
                 logger.debug(f"Profile for user {user_id} created.")
             
@@ -60,9 +67,12 @@ class UserInternalIdMiddleware(BaseMiddleware):
 start_router = Router()
 start_router.message.middleware(UserInternalIdMiddleware())
 
-@start_router.message(CommandStart())
+
+@start_router.message(CommandStart(), StateFilter(None))
 async def start(message: types.Message, state: FSMContext):
 
     logger.debug(f"Created user with credits {message.from_user.id} {message.from_user.username}")
 
     await message.answer("Hello world from bot!")
+
+    await state.set_state(UserStates.global_state)

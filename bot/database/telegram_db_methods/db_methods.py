@@ -19,9 +19,14 @@ class DBMethods:
             await session.commit()
             return user
 
-    async def create_profile(self, user_id: int, challenges_solved: int, katas_solved: int) -> Profile:
+    async def create_profile(self, user_id: int, challenges_solved: int, katas_solved: int, created_at: str) -> Profile:
         async with self.session() as session:
-            profile = Profile(user_id=user_id, challenges_solved=challenges_solved, katas_solved=katas_solved)
+            profile = Profile(
+                user_id=user_id,
+                challenges_solved=challenges_solved,
+                katas_solved=katas_solved,
+                created_at=created_at
+            )
             session.add(profile)
             await session.commit()
             return profile
@@ -30,3 +35,8 @@ class DBMethods:
         async with self.session() as session:
             result = await session.execute(select(Profile).filter_by(user_id=user_id))
             return result.scalars().first()
+        
+    async def get_user_data(self, user_id: int):
+        user = await self.get_user(user_id)
+        profile = await self.get_profile(user_id)
+        return user, profile
